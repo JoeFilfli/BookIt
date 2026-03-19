@@ -140,8 +140,23 @@ model Service {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  bookings Booking[]
+  business  Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  bookings  Booking[]
+  schedules ServiceSchedule[]
+}
+
+// ─── ServiceSchedule ─────────────────────────────────────
+
+model ServiceSchedule {
+  id        String @id @default(uuid())
+  serviceId String
+  dayOfWeek Int
+  startTime String
+  endTime   String
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, dayOfWeek, startTime])
 }
 
 // ─── ResourceSchedule ────────────────────────────────────

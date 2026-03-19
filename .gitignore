@@ -36,8 +36,10 @@ next-env.d.ts
 
 # prisma
 prisma/*.db
-prisma/migrations/
 
 # IDE
 .vscode/
 .idea/
+
+# AI tools
+/.claude/

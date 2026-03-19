@@ -58,10 +58,28 @@ export async function GET(
     const dayOfWeek = requestedDate.getDay(); // 0 = Sunday, 6 = Saturday
 
     // Get the resource's schedule blocks for that day
-    const scheduleBlocks = await prisma.resourceSchedule.findMany({
+    const resourceScheduleBlocks = await prisma.resourceSchedule.findMany({
       where: { resourceId, dayOfWeek },
       orderBy: { startTime: "asc" },
     });
+
+    if (resourceScheduleBlocks.length === 0) {
+      return NextResponse.json({ slots: [] });
+    }
+
+    // Get service schedule blocks for that day (if any are defined)
+    const serviceScheduleBlocks = await prisma.serviceSchedule.findMany({
+      where: { serviceId, dayOfWeek },
+      orderBy: { startTime: "asc" },
+    });
+
+    // Intersect resource and service schedules: if the service has schedules defined,
+    // a slot must fall within both a resource block and a service block.
+    // If no service schedules are defined, only resource schedules apply.
+    const scheduleBlocks =
+      serviceScheduleBlocks.length === 0
+        ? resourceScheduleBlocks
+        : intersectScheduleBlocks(resourceScheduleBlocks, serviceScheduleBlocks);
 
     if (scheduleBlocks.length === 0) {
       return NextResponse.json({ slots: [] });
@@ -130,4 +148,23 @@ function minutesToTime(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+}
+
+function intersectScheduleBlocks(
+  resourceBlocks: { startTime: string; endTime: string }[],
+  serviceBlocks: { startTime: string; endTime: string }[]
+): { startTime: string; endTime: string }[] {
+  const result: { startTime: string; endTime: string }[] = [];
+
+  for (const rb of resourceBlocks) {
+    for (const sb of serviceBlocks) {
+      const start = rb.startTime > sb.startTime ? rb.startTime : sb.startTime;
+      const end = rb.endTime < sb.endTime ? rb.endTime : sb.endTime;
+      if (start < end) {
+        result.push({ startTime: start, endTime: end });
+      }
+    }
+  }
+
+  return result.sort((a, b) => a.startTime.localeCompare(b.startTime));
 }

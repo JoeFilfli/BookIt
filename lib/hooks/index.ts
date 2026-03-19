@@ -431,6 +431,79 @@ export function useDeleteSchedule() {
   });
 }
 
+// ─── Service Schedules ──────────────────────────────────
+
+export function useServiceSchedules(serviceId: string) {
+  return useQuery({
+    queryKey: ["service-schedules", serviceId],
+    queryFn: async () => {
+      const res = await fetch(`/api/services/${serviceId}/schedules`);
+      if (!res.ok) throw new Error("Failed to fetch service schedules");
+      return res.json();
+    },
+    enabled: !!serviceId,
+  });
+}
+
+export function useCreateServiceSchedule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      serviceId,
+      data,
+    }: {
+      serviceId: string;
+      data: Record<string, unknown>;
+    }) => {
+      const res = await fetch(`/api/services/${serviceId}/schedules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to create service schedule");
+      }
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["service-schedules", variables.serviceId],
+      });
+    },
+  });
+}
+
+export function useDeleteServiceSchedule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      serviceId,
+      scheduleId,
+    }: {
+      serviceId: string;
+      scheduleId: string;
+    }) => {
+      const res = await fetch(
+        `/api/services/${serviceId}/schedules/${scheduleId}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to delete service schedule");
+      }
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["service-schedules", variables.serviceId],
+      });
+    },
+  });
+}
+
 // ─── Availability ───────────────────────────────────────
 
 export function useAvailableSlots(
