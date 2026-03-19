@@ -1,0 +1,18 @@
+{
+  "common": {
+    "appName": "Booking Marketplace",
+    "comingSoon": "Coming Soon",
+    "signIn": "Sign In",
+    "signOut": "Sign Out",
+    "search": "Search",
+    "book": "Book Now"
+  },
+  "home": {
+    "title": "Book Sports Courts & Salons in Lebanon",
+    "subtitle": "Find and book the best venues instantly"
+  },
+  "categories": {
+    "sports": "Sports & Courts",
+    "salons": "Salons"
+  }
+}
