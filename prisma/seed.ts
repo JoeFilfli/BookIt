@@ -22,7 +22,7 @@ async function main() {
     data: {
       name: "Sarah Johnson",
       email: "sarah@example.com",
-      hashedPassword: "$2b$10$placeholder_hash_for_seed_data",
+      hashedPassword: "$2b$10$sZFrxbZCoWxnGP4C9bPZ.eLXzXrTd4hFBJ0kI2nWbshZp7jewO1Gu",
       phone: "+961 71 123 456",
     },
   });
@@ -31,7 +31,7 @@ async function main() {
     data: {
       name: "Ahmad Khalil",
       email: "ahmad@example.com",
-      hashedPassword: "$2b$10$placeholder_hash_for_seed_data",
+      hashedPassword: "$2b$10$sZFrxbZCoWxnGP4C9bPZ.eLXzXrTd4hFBJ0kI2nWbshZp7jewO1Gu",
       phone: "+961 70 987 654",
     },
   });
