@@ -5,8 +5,22 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/utils/prisma";
 import bcrypt from "bcryptjs";
 
+function mapImageToAvatarUrl<T extends Record<string, unknown>>(data: T) {
+  const { image, ...rest } = data as { image?: unknown } & Record<string, unknown>;
+  return image !== undefined ? { ...rest, avatarUrl: image } : rest;
+}
+
+const baseAdapter = PrismaAdapter(prisma);
+const adapter = {
+  ...baseAdapter,
+  createUser: (data: Parameters<typeof baseAdapter.createUser>[0]) =>
+    baseAdapter.createUser(mapImageToAvatarUrl(data) as Parameters<typeof baseAdapter.createUser>[0]),
+  updateUser: (data: Parameters<typeof baseAdapter.updateUser>[0]) =>
+    baseAdapter.updateUser(mapImageToAvatarUrl(data) as Parameters<typeof baseAdapter.updateUser>[0]),
+};
+
 export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  adapter,
   session: { strategy: "jwt" },
   providers: [
     Google({
