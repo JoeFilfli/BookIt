@@ -30,12 +30,12 @@ export async function GET() {
     });
 
     const sports = enriched
-      .filter((b) => b.category === "SPORTS")
+      .filter((b) => b.category === "COURTS_SPORTS")
       .sort((a, b) => b.averageRating - a.averageRating)
       .slice(0, 4);
 
     const salons = enriched
-      .filter((b) => b.category === "SALON")
+      .filter((b) => b.category === "WOMEN_CARE" || b.category === "MEN_CARE")
       .sort((a, b) => b.averageRating - a.averageRating)
       .slice(0, 4);
 

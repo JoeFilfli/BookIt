@@ -14,16 +14,10 @@ import {
   useDeleteServiceSchedule,
 } from "@/lib/hooks";
 import Link from "next/link";
+import { toast } from "sonner";
+import { CalendarDays, ArrowLeft, Plus, X, Clock } from "lucide-react";
 
-const DAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 interface ScheduleBlock {
   id: string;
@@ -50,131 +44,126 @@ function WeeklyScheduleGrid({
   const [addingDay, setAddingDay] = useState<number | null>(null);
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("22:00");
-  const [error, setError] = useState("");
 
   const handleAdd = async (dayOfWeek: number) => {
-    setError("");
     try {
       await onAdd(dayOfWeek, startTime, endTime);
+      toast.success("Schedule block added");
       setAddingDay(null);
       setStartTime("08:00");
       setEndTime("22:00");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add schedule");
+      toast.error(err instanceof Error ? err.message : "Failed to add schedule");
     }
   };
 
   const handleDelete = async (scheduleId: string) => {
-    setError("");
     try {
       await onDelete(scheduleId);
+      toast.success("Schedule block removed");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete schedule");
+      toast.error(err instanceof Error ? err.message : "Failed to delete");
     }
   };
 
-  const getSchedulesForDay = (day: number) =>
-    schedules.filter((s) => s.dayOfWeek === day);
+  const getSchedulesForDay = (day: number) => schedules.filter((s) => s.dayOfWeek === day);
 
   if (schedulesLoading) {
-    return <p className="text-gray-500">Loading schedules...</p>;
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="skeleton h-14 w-full rounded-xl" />
+        ))}
+      </div>
+    );
   }
 
   return (
-    <>
-      {error && (
-        <div className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-      <div className="space-y-3">
-        {DAYS.map((dayName, dayIndex) => {
-          const daySchedules = getSchedulesForDay(dayIndex);
-
-          return (
-            <div key={dayIndex} className="rounded-xl bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium text-gray-900">{dayName}</h3>
-                {addingDay !== dayIndex && (
-                  <button
-                    onClick={() => setAddingDay(dayIndex)}
-                    className="text-sm text-blue-600 hover:text-blue-700"
-                  >
-                    + Add Block
-                  </button>
-                )}
-              </div>
-
-              {daySchedules.length > 0 ? (
-                <div className="mt-2 space-y-1">
-                  {daySchedules.map((schedule) => (
-                    <div
-                      key={schedule.id}
-                      className="flex items-center justify-between rounded-lg bg-blue-50 px-3 py-2"
-                    >
-                      <span className="text-sm text-blue-800">
-                        {schedule.startTime} — {schedule.endTime}
-                      </span>
-                      <button
-                        onClick={() => handleDelete(schedule.id)}
-                        disabled={isDeleting}
-                        className="text-sm text-red-600 hover:text-red-700 disabled:opacity-50"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-1 text-sm text-gray-400">
-                  No schedule — closed
-                </p>
-              )}
-
-              {addingDay === dayIndex && (
-                <div className="mt-3 flex items-end gap-3 border-t pt-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      Start
-                    </label>
-                    <input
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      End
-                    </label>
-                    <input
-                      type="time"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                      className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
-                    />
-                  </div>
-                  <button
-                    onClick={() => handleAdd(dayIndex)}
-                    disabled={isCreating}
-                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    Add
-                  </button>
-                  <button
-                    onClick={() => setAddingDay(null)}
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
+    <div className="space-y-3">
+      {DAYS.map((dayName, dayIndex) => {
+        const daySchedules = getSchedulesForDay(dayIndex);
+        return (
+          <div key={dayIndex} className="rounded-xl bg-white p-4 shadow-sm border border-surface-border">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-text-primary text-sm">{dayName}</h3>
+              {addingDay !== dayIndex && (
+                <button
+                  onClick={() => setAddingDay(dayIndex)}
+                  className="inline-flex items-center gap-1 text-xs font-medium transition-colors"
+                  style={{ color: "var(--color-accent)" }}
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Block
+                </button>
               )}
             </div>
-          );
-        })}
-      </div>
-    </>
+
+            {daySchedules.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {daySchedules.map((schedule) => (
+                  <div
+                    key={schedule.id}
+                    className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium"
+                    style={{ backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent)" }}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    {schedule.startTime} — {schedule.endTime}
+                    <button
+                      onClick={() => handleDelete(schedule.id)}
+                      disabled={isDeleting}
+                      className="ml-1 opacity-60 hover:opacity-100 transition-opacity disabled:opacity-30"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {daySchedules.length === 0 && addingDay !== dayIndex && (
+              <p className="mt-1 text-xs text-text-secondary">Closed — no availability</p>
+            )}
+
+            {addingDay === dayIndex && (
+              <div className="mt-3 flex items-end gap-3 border-t border-surface-border pt-3">
+                <div>
+                  <label className="block text-xs font-medium text-text-secondary mb-1">Start</label>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="rounded-lg border border-surface-border px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
+                    style={{ borderColor: "var(--color-surface-border)" }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-text-secondary mb-1">End</label>
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="rounded-lg border border-surface-border px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
+                    style={{ borderColor: "var(--color-surface-border)" }}
+                  />
+                </div>
+                <button
+                  onClick={() => handleAdd(dayIndex)}
+                  disabled={isCreating}
+                  className="btn-primary text-sm px-3 py-1.5 disabled:opacity-50"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={() => setAddingDay(null)}
+                  className="btn-secondary text-sm px-3 py-1.5"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -184,7 +173,7 @@ export default function ManageSchedulesPage() {
   const [selectedResourceId, setSelectedResourceId] = useState("");
   const [selectedServiceId, setSelectedServiceId] = useState("");
 
-  const { data: businessData } = useQuery({
+  const { data: businessData, isLoading: bizLoading } = useQuery({
     queryKey: ["my-business"],
     queryFn: async () => {
       const res = await fetch("/api/businesses/my");
@@ -203,7 +192,6 @@ export default function ManageSchedulesPage() {
   const resourceList = resources as Array<{ id: string; name: string; type: string }>;
   const serviceList = services as Array<{ id: string; name: string; durationMinutes: number }>;
 
-  // Auto-select first resource/service when lists load
   if (resourceList.length > 0 && !selectedResourceId) {
     setSelectedResourceId(resourceList[0].id);
   }
@@ -211,197 +199,164 @@ export default function ManageSchedulesPage() {
     setSelectedServiceId(serviceList[0].id);
   }
 
-  const { data: resourceSchedules = [], isLoading: resourceSchedulesLoading } =
-    useSchedules(selectedResourceId);
-  const { data: serviceSchedules = [], isLoading: serviceSchedulesLoading } =
-    useServiceSchedules(selectedServiceId);
+  const { data: resourceSchedules = [], isLoading: resourceSchedulesLoading } = useSchedules(selectedResourceId);
+  const { data: serviceSchedules = [], isLoading: serviceSchedulesLoading } = useServiceSchedules(selectedServiceId);
 
   const createResourceSchedule = useCreateSchedule();
   const deleteResourceSchedule = useDeleteSchedule();
   const createServiceSchedule = useCreateServiceSchedule();
   const deleteServiceSchedule = useDeleteServiceSchedule();
 
-  if (status === "loading") {
+  if (status === "loading" || bizLoading) {
     return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
-      </main>
+      <div className="py-8 px-4 max-w-4xl mx-auto">
+        <div className="skeleton h-6 w-32 mb-2 rounded" />
+        <div className="skeleton h-8 w-48 mb-2 rounded" />
+        <div className="skeleton h-4 w-64 mb-8 rounded" />
+        <div className="skeleton h-10 w-48 mb-6 rounded-xl" />
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-14 w-full rounded-xl" />)}
+        </div>
+      </div>
     );
   }
 
   if (!businessData) {
     return (
-      <main className="min-h-screen bg-gray-50 py-12 px-4">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-gray-600">You need to create a business first.</p>
-          <Link
-            href="/dashboard/create"
-            className="mt-4 inline-block rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Create Your Business
-          </Link>
-        </div>
-      </main>
+      <div className="py-20 px-4 flex flex-col items-center text-center">
+        <CalendarDays className="w-12 h-12 mb-4" style={{ color: "var(--color-text-secondary)" }} />
+        <h2 className="text-lg font-semibold text-text-primary mb-2">No business yet</h2>
+        <p className="text-text-secondary text-sm mb-6">Create your business profile before setting schedules.</p>
+        <Link href="/dashboard/create" className="btn-primary text-sm px-5 py-2.5">
+          Create Your Business
+        </Link>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-8">
-          <Link
-            href="/dashboard"
-            className="text-sm text-blue-600 hover:text-blue-700"
-          >
-            &larr; Back to Dashboard
-          </Link>
-          <h1 className="mt-2 text-2xl font-bold text-gray-900">
-            Manage Schedules
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Set when resources and services are available for booking.
-          </p>
-        </div>
-
-        {/* Tabs */}
-        <div className="mb-6 flex gap-1 rounded-xl bg-gray-200 p-1 w-fit">
-          <button
-            onClick={() => setActiveTab("resources")}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === "resources"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            Resources
-          </button>
-          <button
-            onClick={() => setActiveTab("services")}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === "services"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            Services
-          </button>
-        </div>
-
-        {/* Resource Schedules Tab */}
-        {activeTab === "resources" && (
-          <>
-            {resourceList.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500">
-                  You need to add resources before setting schedules.
-                </p>
-                <Link
-                  href="/dashboard/resources"
-                  className="mt-4 inline-block rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  Add Resources
-                </Link>
-              </div>
-            ) : (
-              <>
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Select Resource
-                  </label>
-                  <select
-                    value={selectedResourceId}
-                    onChange={(e) => setSelectedResourceId(e.target.value)}
-                    className="w-full max-w-xs rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    {resourceList.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name} ({r.type.charAt(0) + r.type.slice(1).toLowerCase()})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <WeeklyScheduleGrid
-                  schedules={resourceSchedules as ScheduleBlock[]}
-                  schedulesLoading={resourceSchedulesLoading}
-                  onAdd={async (dayOfWeek, startTime, endTime) => {
-                    await createResourceSchedule.mutateAsync({
-                      resourceId: selectedResourceId,
-                      data: { dayOfWeek, startTime, endTime },
-                    });
-                  }}
-                  onDelete={async (scheduleId) => {
-                    await deleteResourceSchedule.mutateAsync({
-                      resourceId: selectedResourceId,
-                      scheduleId,
-                    });
-                  }}
-                  isCreating={createResourceSchedule.isPending}
-                  isDeleting={deleteResourceSchedule.isPending}
-                />
-              </>
-            )}
-          </>
-        )}
-
-        {/* Service Schedules Tab */}
-        {activeTab === "services" && (
-          <>
-            {serviceList.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500">
-                  You need to add services before setting schedules.
-                </p>
-                <Link
-                  href="/dashboard/services"
-                  className="mt-4 inline-block rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  Add Services
-                </Link>
-              </div>
-            ) : (
-              <>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Select Service
-                  </label>
-                  <select
-                    value={selectedServiceId}
-                    onChange={(e) => setSelectedServiceId(e.target.value)}
-                    className="w-full max-w-xs rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    {serviceList.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.durationMinutes} min)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <p className="mb-6 text-sm text-gray-500">
-                  Define when this service is offered. If no schedule is set, the service follows the resource&apos;s schedule.
-                </p>
-                <WeeklyScheduleGrid
-                  schedules={serviceSchedules as ScheduleBlock[]}
-                  schedulesLoading={serviceSchedulesLoading}
-                  onAdd={async (dayOfWeek, startTime, endTime) => {
-                    await createServiceSchedule.mutateAsync({
-                      serviceId: selectedServiceId,
-                      data: { dayOfWeek, startTime, endTime },
-                    });
-                  }}
-                  onDelete={async (scheduleId) => {
-                    await deleteServiceSchedule.mutateAsync({
-                      serviceId: selectedServiceId,
-                      scheduleId,
-                    });
-                  }}
-                  isCreating={createServiceSchedule.isPending}
-                  isDeleting={deleteServiceSchedule.isPending}
-                />
-              </>
-            )}
-          </>
-        )}
+    <div className="py-8 px-4 max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="mb-8">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-1 text-sm font-medium mb-3 transition-colors"
+          style={{ color: "var(--color-accent)" }}
+        >
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Dashboard
+        </Link>
+        <h1 className="text-2xl font-bold text-text-primary">Manage Schedules</h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          Set when resources and services are available for booking.
+        </p>
       </div>
-    </main>
+
+      {/* Tabs */}
+      <div className="mb-6 flex gap-1 p-1 rounded-xl w-fit" style={{ backgroundColor: "var(--color-surface-dim)" }}>
+        {(["resources", "services"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className="rounded-lg px-5 py-2 text-sm font-medium transition-all capitalize"
+            style={
+              activeTab === tab
+                ? { backgroundColor: "white", color: "var(--color-text-primary)", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }
+                : { color: "var(--color-text-secondary)" }
+            }
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Resource Schedules Tab */}
+      {activeTab === "resources" && (
+        resourceList.length === 0 ? (
+          <div className="flex flex-col items-center text-center py-14 rounded-xl bg-white border border-dashed border-surface-border">
+            <CalendarDays className="w-10 h-10 mb-3" style={{ color: "var(--color-text-secondary)" }} />
+            <p className="font-medium text-text-primary mb-1">No resources added yet</p>
+            <p className="text-sm text-text-secondary mb-5">You need resources before setting their schedule.</p>
+            <Link href="/dashboard/resources" className="btn-primary text-sm px-5 py-2.5">
+              Add Resources
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-text-primary mb-1">Select Resource</label>
+              <select
+                value={selectedResourceId}
+                onChange={(e) => setSelectedResourceId(e.target.value)}
+                className="field-base max-w-xs"
+              >
+                {resourceList.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name} ({r.type.charAt(0) + r.type.slice(1).toLowerCase()})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <WeeklyScheduleGrid
+              schedules={resourceSchedules as ScheduleBlock[]}
+              schedulesLoading={resourceSchedulesLoading}
+              onAdd={async (dayOfWeek, startTime, endTime) => {
+                await createResourceSchedule.mutateAsync({ resourceId: selectedResourceId, data: { dayOfWeek, startTime, endTime } });
+              }}
+              onDelete={async (scheduleId) => {
+                await deleteResourceSchedule.mutateAsync({ resourceId: selectedResourceId, scheduleId });
+              }}
+              isCreating={createResourceSchedule.isPending}
+              isDeleting={deleteResourceSchedule.isPending}
+            />
+          </>
+        )
+      )}
+
+      {/* Service Schedules Tab */}
+      {activeTab === "services" && (
+        serviceList.length === 0 ? (
+          <div className="flex flex-col items-center text-center py-14 rounded-xl bg-white border border-dashed border-surface-border">
+            <CalendarDays className="w-10 h-10 mb-3" style={{ color: "var(--color-text-secondary)" }} />
+            <p className="font-medium text-text-primary mb-1">No services added yet</p>
+            <p className="text-sm text-text-secondary mb-5">You need services before setting their schedule.</p>
+            <Link href="/dashboard/services" className="btn-primary text-sm px-5 py-2.5">
+              Add Services
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div className="mb-2">
+              <label className="block text-sm font-medium text-text-primary mb-1">Select Service</label>
+              <select
+                value={selectedServiceId}
+                onChange={(e) => setSelectedServiceId(e.target.value)}
+                className="field-base max-w-xs"
+              >
+                {serviceList.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.durationMinutes} min)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="mb-5 text-sm text-text-secondary">
+              If no schedule is set, this service follows the resource&apos;s schedule.
+            </p>
+            <WeeklyScheduleGrid
+              schedules={serviceSchedules as ScheduleBlock[]}
+              schedulesLoading={serviceSchedulesLoading}
+              onAdd={async (dayOfWeek, startTime, endTime) => {
+                await createServiceSchedule.mutateAsync({ serviceId: selectedServiceId, data: { dayOfWeek, startTime, endTime } });
+              }}
+              onDelete={async (scheduleId) => {
+                await deleteServiceSchedule.mutateAsync({ serviceId: selectedServiceId, scheduleId });
+              }}
+              isCreating={createServiceSchedule.isPending}
+              isDeleting={deleteServiceSchedule.isPending}
+            />
+          </>
+        )
+      )}
+    </div>
   );
 }

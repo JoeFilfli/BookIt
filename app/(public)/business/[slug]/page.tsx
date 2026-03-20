@@ -1,36 +1,165 @@
 import { prisma } from "@/lib/utils/prisma";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { MapPin, Phone, Star } from "lucide-react";
 import BookingPanel from "./BookingPanel";
 import ReviewsSection from "./ReviewsSection";
+import { CATEGORY_CONFIG } from "@/lib/categories/config";
+import type { BusinessCategory } from "@/lib/types";
 
-const DAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-function StarRating({ rating, size = "sm" }: { rating: number; size?: "sm" | "lg" }) {
-  const sizeClass = size === "lg" ? "h-5 w-5" : "h-4 w-4";
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <svg
-          key={star}
-          className={`${sizeClass} ${
-            star <= Math.round(rating) ? "text-yellow-400" : "text-gray-300"
-          }`}
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-        </svg>
+const BASE_URL = process.env.NEXTAUTH_URL || "https://bookit.com";
+
+/** Render category-specific detail info grid from extraFields */
+function ExtraFieldsInfo({ category, extraFields }: { category: string; fields?: Record<string, unknown> | null; extraFields?: Record<string, unknown> | null }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const f = extraFields as Record<string, any> | null;
+  if (!f) return null;
+
+  const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div className="flex items-start gap-2 py-2 border-b border-surface-border last:border-0">
+      <span className="text-sm font-medium text-text-secondary w-32 shrink-0">{label}</span>
+      <span className="text-sm text-text-primary">{value}</span>
+    </div>
+  );
+
+  const TagList = ({ items }: { items: unknown[] }) => (
+    <div className="flex flex-wrap gap-1">
+      {(items as string[]).map((t) => (
+        <span key={t} className="px-2 py-0.5 rounded-full text-xs font-medium bg-surface-dim text-text-secondary">{t}</span>
       ))}
     </div>
   );
+
+  const Bool = ({ val }: { val: unknown }) => (
+    <span style={{ color: val ? "var(--color-success)" : "var(--color-text-secondary)" }}>
+      {val ? "✓ Yes" : "✗ No"}
+    </span>
+  );
+
+  switch (category) {
+    case "FOOD":
+      return (
+        <div>
+          {f.cuisineTypes && Array.isArray(f.cuisineTypes) && <InfoRow label="Cuisine" value={<TagList items={f.cuisineTypes as string[]} />} />}
+          {f.diningStyle && <InfoRow label="Style" value={String(f.diningStyle).replace("_", " ")} />}
+          {f.priceRange && <InfoRow label="Price Range" value={String(f.priceRange)} />}
+          <InfoRow label="Outdoor Seating" value={<Bool val={f.hasOutdoorSeating} />} />
+          <InfoRow label="Delivery" value={<Bool val={f.hasDelivery} />} />
+        </div>
+      );
+    case "NIGHTLIFE":
+      return (
+        <div>
+          {f.venueType && <InfoRow label="Venue Type" value={<span className="capitalize">{String(f.venueType)}</span>} />}
+          {f.musicGenre && Array.isArray(f.musicGenre) && <InfoRow label="Music" value={<TagList items={f.musicGenre as string[]} />} />}
+          {f.dressCode && <InfoRow label="Dress Code" value={String(f.dressCode).replace("_", " ")} />}
+          {f.ageRestriction && <InfoRow label="Age" value={`${f.ageRestriction}+`} />}
+          <InfoRow label="VIP Available" value={<Bool val={f.hasVIP} />} />
+        </div>
+      );
+    case "EVENTS":
+      return (
+        <div>
+          {f.eventTypes && Array.isArray(f.eventTypes) && <InfoRow label="Event Types" value={<TagList items={f.eventTypes as string[]} />} />}
+          {f.venueCapacity && <InfoRow label="Capacity" value={`${f.venueCapacity} guests`} />}
+          <InfoRow label="Indoor" value={<Bool val={f.isIndoor} />} />
+          <InfoRow label="Outdoor" value={<Bool val={f.isOutdoor} />} />
+        </div>
+      );
+    case "ATTRACTIONS_TOURISM":
+      return (
+        <div>
+          {f.attractionType && Array.isArray(f.attractionType) && <InfoRow label="Type" value={<TagList items={f.attractionType as string[]} />} />}
+          {f.tourDuration && <InfoRow label="Duration" value={String(f.tourDuration)} />}
+          {f.languages && Array.isArray(f.languages) && <InfoRow label="Languages" value={<TagList items={f.languages as string[]} />} />}
+          <InfoRow label="Accessible" value={<Bool val={f.accessibility} />} />
+        </div>
+      );
+    case "ACTIVITIES_EXPERIENCES":
+      return (
+        <div>
+          {f.activityTypes && Array.isArray(f.activityTypes) && <InfoRow label="Activities" value={<TagList items={f.activityTypes as string[]} />} />}
+          {f.difficultyLevel && <InfoRow label="Difficulty" value={<span className="capitalize">{String(f.difficultyLevel)}</span>} />}
+          {(f.groupSizeMin !== undefined && f.groupSizeMax !== undefined) && <InfoRow label="Group Size" value={`${f.groupSizeMin} – ${f.groupSizeMax} people`} />}
+          {f.ageRequirement && Number(f.ageRequirement) > 0 && <InfoRow label="Min Age" value={`${f.ageRequirement}+`} />}
+        </div>
+      );
+    case "COURTS_SPORTS":
+      return (
+        <div>
+          {f.sportTypes && Array.isArray(f.sportTypes) && <InfoRow label="Sports" value={<TagList items={f.sportTypes as string[]} />} />}
+          {f.surfaceType && <InfoRow label="Surface" value={String(f.surfaceType)} />}
+          {f.courtCount && <InfoRow label="Courts" value={String(f.courtCount)} />}
+          <InfoRow label="Indoor" value={<Bool val={f.isIndoor} />} />
+        </div>
+      );
+    case "STUDIOS_CLASSES":
+      return (
+        <div>
+          {f.classTypes && Array.isArray(f.classTypes) && <InfoRow label="Classes" value={<TagList items={f.classTypes as string[]} />} />}
+          {f.skillLevel && <InfoRow label="Level" value={String(f.skillLevel).replace("_", " ")} />}
+          {f.maxClassSize && <InfoRow label="Class Size" value={`Up to ${f.maxClassSize}`} />}
+          <InfoRow label="Equipment" value={<Bool val={f.providesEquipment} />} />
+        </div>
+      );
+    case "MEN_CARE":
+      return (
+        <div>
+          {f.specialties && Array.isArray(f.specialties) && <InfoRow label="Specialties" value={<TagList items={f.specialties as string[]} />} />}
+          <InfoRow label="Walk-ins" value={<Bool val={f.walkInsAccepted} />} />
+        </div>
+      );
+    case "WOMEN_CARE":
+      return (
+        <div>
+          {f.specialties && Array.isArray(f.specialties) && <InfoRow label="Specialties" value={<TagList items={f.specialties as string[]} />} />}
+          {f.genderFocus && <InfoRow label="Focus" value={f.genderFocus === "women_only" ? "Women Only" : "Unisex"} />}
+        </div>
+      );
+    case "WELLNESS":
+      return (
+        <div>
+          {f.wellnessTypes && Array.isArray(f.wellnessTypes) && <InfoRow label="Services" value={<TagList items={f.wellnessTypes as string[]} />} />}
+          <InfoRow label="Pool" value={<Bool val={f.hasPool} />} />
+          <InfoRow label="Sauna" value={<Bool val={f.hasSauna} />} />
+          <InfoRow label="Couples" value={<Bool val={f.couplesAvailable} />} />
+        </div>
+      );
+    case "HEALTH_CARE":
+      return (
+        <div>
+          {f.healthServices && Array.isArray(f.healthServices) && <InfoRow label="Services" value={<TagList items={f.healthServices as string[]} />} />}
+          <InfoRow label="Insurance" value={<Bool val={f.acceptsInsurance} />} />
+          {f.licenseNumber && <InfoRow label="License" value={String(f.licenseNumber)} />}
+        </div>
+      );
+    default:
+      return null;
+  }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const business = await prisma.business.findUnique({
+    where: { slug },
+    select: { name: true, description: true, category: true, city: true },
+  });
+  if (!business) return {};
+  const cfg = CATEGORY_CONFIG[business.category as BusinessCategory];
+  const catName = cfg?.displayName ?? business.category;
+  return {
+    title: `${business.name} — ${catName} in ${business.city} | BookIt`,
+    description: business.description
+      ? business.description.slice(0, 160)
+      : `Book ${business.name} on BookIt. ${catName} in ${business.city}, Lebanon.`,
+  };
 }
 
 export default async function BusinessProfilePage({
@@ -45,11 +174,7 @@ export default async function BusinessProfilePage({
     include: {
       owner: { select: { id: true, name: true, avatarUrl: true } },
       resources: {
-        include: {
-          schedules: {
-            orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
-          },
-        },
+        include: { schedules: { orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] } },
       },
       services: { orderBy: { name: "asc" } },
     },
@@ -77,127 +202,169 @@ export default async function BusinessProfilePage({
     : 0;
   const totalPages = Math.ceil(totalReviews / 10);
 
-  // Compute operating hours from resource schedules
+  const cfg = CATEGORY_CONFIG[business.category as BusinessCategory];
+  const categorySlug = cfg?.slug ?? "courts-sports";
+  const categoryLabel = cfg?.displayName ?? business.category;
+  const resourceHeading = cfg?.resourceSectionHeading ?? "Our Resources";
+
+  // Operating hours
   const allSchedules = business.resources.flatMap((r) => r.schedules);
   const hoursByDay: Record<number, { start: string; end: string }> = {};
   for (const s of allSchedules) {
-    if (!hoursByDay[s.dayOfWeek] || s.startTime < hoursByDay[s.dayOfWeek].start) {
-      hoursByDay[s.dayOfWeek] = {
-        start: s.startTime,
-        end: hoursByDay[s.dayOfWeek]?.end > s.endTime
-          ? hoursByDay[s.dayOfWeek].end
-          : s.endTime,
-      };
-    }
-    if (s.endTime > hoursByDay[s.dayOfWeek].end) {
-      hoursByDay[s.dayOfWeek] = { ...hoursByDay[s.dayOfWeek], end: s.endTime };
+    if (!hoursByDay[s.dayOfWeek]) {
+      hoursByDay[s.dayOfWeek] = { start: s.startTime, end: s.endTime };
+    } else {
+      if (s.startTime < hoursByDay[s.dayOfWeek].start) hoursByDay[s.dayOfWeek].start = s.startTime;
+      if (s.endTime > hoursByDay[s.dayOfWeek].end) hoursByDay[s.dayOfWeek].end = s.endTime;
     }
   }
 
-  // Serialize for client components (Decimal → string, Date → ISO string)
   const serializedServices = business.services.map((s) => ({
-    id: s.id,
-    name: s.name,
-    description: s.description,
-    durationMinutes: s.durationMinutes,
-    price: s.price.toString(),
-    currency: s.currency,
+    id: s.id, name: s.name, description: s.description,
+    durationMinutes: s.durationMinutes, price: s.price.toString(), currency: s.currency,
   }));
-
   const serializedResources = business.resources.map((r) => ({
-    id: r.id,
-    name: r.name,
-    description: r.description,
-    type: r.type as string,
-    imageUrl: r.imageUrl,
+    id: r.id, name: r.name, description: r.description,
+    type: r.type as string, imageUrl: r.imageUrl,
+  }));
+  const serializedReviews = initialReviews.map((r) => ({
+    id: r.id, rating: r.rating, comment: r.comment,
+    createdAt: r.createdAt.toISOString(), user: r.user,
   }));
 
-  const serializedReviews = initialReviews.map((r) => ({
-    id: r.id,
-    rating: r.rating,
-    comment: r.comment,
-    createdAt: r.createdAt.toISOString(),
-    user: r.user,
-  }));
+  const minPrice = serializedServices.length > 0
+    ? Math.min(...serializedServices.map((s) => Number(s.price)))
+    : null;
+
+  const extraFields = business.extraFields as Record<string, unknown> | null;
+
+  // JSON-LD structured data
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: business.name,
+    description: business.description ?? undefined,
+    telephone: business.phone,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: business.address,
+      addressLocality: business.city,
+      addressCountry: "LB",
+    },
+    image: business.images[0] ?? undefined,
+    aggregateRating: averageRating > 0 ? {
+      "@type": "AggregateRating",
+      ratingValue: averageRating,
+      reviewCount: totalReviews,
+    } : undefined,
+    url: `${BASE_URL}/business/${business.slug}`,
+  };
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-surface-dim">
+      {/* JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
       {/* Image Gallery */}
-      <div className="bg-gray-200">
+      <div className="bg-primary-light">
         {business.images.length > 0 ? (
           <div className="mx-auto max-w-7xl">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-1 max-h-96 overflow-hidden">
-              {business.images.slice(0, 3).map((url, i) => (
-                <div key={i} className={i === 0 ? "md:col-span-2 md:row-span-2" : ""}>
-                  <img
-                    src={url}
-                    alt={`${business.name} ${i + 1}`}
-                    className="h-full w-full object-cover"
-                  />
+            <div className="relative aspect-[16/7] md:aspect-[21/8] overflow-hidden rounded-b-2xl">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={business.images[0]} alt={business.name} className="w-full h-full object-cover" />
+              {business.images.length > 1 && (
+                <div className="absolute inset-0 grid grid-cols-5 grid-rows-2 gap-1 p-1 pointer-events-none">
+                  <div className="col-span-3 row-span-2" />
+                  {business.images.slice(1, 3).map((url, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={i} src={url} alt="" className="col-span-2 h-full w-full object-cover rounded-lg pointer-events-auto" />
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           </div>
         ) : (
-          <div className="mx-auto max-w-7xl flex items-center justify-center h-48 text-6xl text-gray-400">
-            {business.category === "SPORTS" ? "⚽" : "✂️"}
-          </div>
+          <div className="h-48 flex items-center justify-center text-6xl">🏢</div>
         )}
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-8">
+      <div className="mx-auto max-w-7xl px-4 md:px-6 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left: Business Info */}
-          <div className="flex-1 space-y-8">
-            {/* Header */}
-            <div>
-              <div className="flex items-start justify-between">
+          {/* ── LEFT COLUMN ── */}
+          <div className="flex-1 min-w-0 space-y-8">
+
+            {/* Business Header */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center gap-2 text-sm text-text-secondary mb-3">
+                <Link href="/" className="hover:text-accent transition-colors">Home</Link>
+                <span>/</span>
+                <Link href={`/${categorySlug}`} className="hover:text-accent transition-colors capitalize">
+                  {categoryLabel}
+                </Link>
+              </div>
+
+              <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    {business.name}
-                  </h1>
-                  <p className="mt-1 text-gray-500">
-                    {business.address}, {business.city}
-                  </p>
-                </div>
-                {averageRating > 0 && (
-                  <div className="text-right">
-                    <div className="flex items-center gap-2">
-                      <StarRating rating={averageRating} size="lg" />
-                      <span className="text-lg font-semibold">{averageRating}</span>
+                  <span
+                    className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide mb-2"
+                    style={{ backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent)" }}
+                  >
+                    {categoryLabel}
+                  </span>
+                  <h1 className="text-3xl font-extrabold text-text-primary">{business.name}</h1>
+                  <div className="flex items-center gap-4 mt-2 flex-wrap">
+                    {averageRating > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        <Star className="w-5 h-5 fill-star text-star" />
+                        <span className="font-bold text-text-primary">{averageRating}</span>
+                        <span className="text-text-secondary text-sm">({totalReviews} reviews)</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1 text-text-secondary text-sm">
+                      <MapPin className="w-4 h-4" />
+                      {business.address}, {business.city}
                     </div>
-                    <p className="text-sm text-gray-500">{totalReviews} reviews</p>
+                    <a href={`tel:${business.phone}`} className="flex items-center gap-1 text-sm font-medium transition-colors" style={{ color: "var(--color-accent)" }}>
+                      <Phone className="w-4 h-4" />
+                      {business.phone}
+                    </a>
+                  </div>
+                </div>
+                {minPrice !== null && minPrice > 0 && (
+                  <div className="text-right shrink-0">
+                    <div className="text-xs text-text-secondary">Starting from</div>
+                    <div className="text-2xl font-extrabold text-text-primary">${minPrice}</div>
                   </div>
                 )}
               </div>
+
               {business.description && (
-                <p className="mt-4 text-gray-600">{business.description}</p>
+                <p className="mt-4 text-text-secondary leading-relaxed">{business.description}</p>
               )}
-              <div className="mt-4 flex items-center gap-4 text-sm text-gray-500">
-                <span>Phone: {business.phone}</span>
-                {business.owner && (
-                  <span>By {business.owner.name}</span>
-                )}
-              </div>
             </div>
+
+            {/* Category-specific details */}
+            {extraFields && (
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-text-primary mb-4">About</h2>
+                <ExtraFieldsInfo category={business.category} extraFields={extraFields} />
+              </div>
+            )}
 
             {/* Operating Hours */}
             {Object.keys(hoursByDay).length > 0 && (
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Operating Hours
-                </h2>
-                <div className="mt-4 space-y-2">
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-text-primary mb-4">Operating Hours</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                   {DAYS.map((day, i) => (
-                    <div
-                      key={day}
-                      className="flex justify-between text-sm py-1 border-b border-gray-100"
-                    >
-                      <span className="text-gray-600">{day}</span>
-                      <span className="text-gray-900">
-                        {hoursByDay[i]
-                          ? `${hoursByDay[i].start} - ${hoursByDay[i].end}`
-                          : "Closed"}
+                    <div key={day} className="flex justify-between py-2 border-b border-surface-border last:border-0">
+                      <span className="text-sm font-medium text-text-primary">{day}</span>
+                      <span className={`text-sm ${hoursByDay[i] ? "font-medium" : "text-text-secondary"}`}
+                        style={hoursByDay[i] ? { color: "var(--color-success)" } : undefined}>
+                        {hoursByDay[i] ? `${hoursByDay[i].start} – ${hoursByDay[i].end}` : "Closed"}
                       </span>
                     </div>
                   ))}
@@ -207,32 +374,25 @@ export default async function BusinessProfilePage({
 
             {/* Services */}
             {serializedServices.length > 0 && (
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">Services</h2>
-                <div className="mt-4 space-y-3">
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-text-primary mb-4">Services</h2>
+                <div className="space-y-0">
                   {serializedServices.map((service) => (
-                    <div
-                      key={service.id}
-                      className="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm"
-                    >
+                    <div key={service.id} className="flex items-center justify-between py-3 border-b border-surface-border last:border-0">
                       <div>
-                        <h3 className="font-medium text-gray-900">
-                          {service.name}
-                        </h3>
-                        {service.description && (
-                          <p className="text-sm text-gray-500">
-                            {service.description}
-                          </p>
-                        )}
-                        <p className="mt-1 text-sm text-gray-400">
-                          {service.durationMinutes} min
-                        </p>
+                        <div className="font-semibold text-text-primary">{service.name}</div>
+                        {service.description && <div className="text-sm text-text-secondary mt-0.5">{service.description}</div>}
+                        <div className="text-sm text-text-secondary mt-0.5">{service.durationMinutes} min</div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">
-                          ${Number(service.price).toFixed(2)}
-                        </p>
-                        <p className="text-xs text-gray-400">{service.currency}</p>
+                      <div className="text-right shrink-0 ml-4">
+                        {Number(service.price) > 0 ? (
+                          <>
+                            <div className="text-lg font-bold text-text-primary">${Number(service.price).toFixed(0)}</div>
+                            <div className="text-xs text-text-secondary">{service.currency}</div>
+                          </>
+                        ) : (
+                          <div className="text-sm font-medium" style={{ color: "var(--color-success)" }}>Free</div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -242,36 +402,24 @@ export default async function BusinessProfilePage({
 
             {/* Resources */}
             {serializedResources.length > 0 && (
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {business.category === "SPORTS"
-                    ? "Courts & Facilities"
-                    : "Our Team"}
-                </h2>
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-text-primary mb-4">{resourceHeading}</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {serializedResources.map((resource) => (
-                    <div
-                      key={resource.id}
-                      className="rounded-lg bg-white p-4 shadow-sm"
-                    >
-                      {resource.imageUrl && (
-                        <img
-                          src={resource.imageUrl}
-                          alt={resource.name}
-                          className="h-32 w-full rounded-lg object-cover"
-                        />
+                    <div key={resource.id} className="rounded-xl border border-surface-border overflow-hidden">
+                      {resource.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={resource.imageUrl} alt={resource.name} className="h-36 w-full object-cover" />
+                      ) : (
+                        <div className="h-24 bg-surface-dim flex items-center justify-center text-3xl">
+                          {resource.type === "COURT" ? "🏟️" : resource.type === "STAFF" || resource.type === "INSTRUCTOR" || resource.type === "GUIDE" ? "👤" : resource.type === "TABLE" ? "🪑" : "🏠"}
+                        </div>
                       )}
-                      <h3 className="mt-2 font-medium text-gray-900">
-                        {resource.name}
-                      </h3>
-                      <p className="text-sm text-gray-500 capitalize">
-                        {resource.type.toLowerCase()}
-                      </p>
-                      {resource.description && (
-                        <p className="mt-1 text-sm text-gray-400">
-                          {resource.description}
-                        </p>
-                      )}
+                      <div className="p-3">
+                        <div className="font-semibold text-text-primary">{resource.name}</div>
+                        <div className="text-xs text-text-secondary capitalize mt-0.5">{resource.type.replace("_", " ").toLowerCase()}</div>
+                        {resource.description && <div className="text-sm text-text-secondary mt-1">{resource.description}</div>}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -288,16 +436,17 @@ export default async function BusinessProfilePage({
             />
           </div>
 
-          {/* Right: Booking Panel */}
+          {/* ── RIGHT COLUMN — Booking Panel ── */}
           <BookingPanel
             businessId={business.id}
             businessSlug={business.slug}
             businessCategory={business.category as string}
             services={serializedServices}
             resources={serializedResources}
+            minPrice={minPrice}
           />
         </div>
       </div>
-    </main>
+    </div>
   );
 }

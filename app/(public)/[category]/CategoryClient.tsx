@@ -3,254 +3,352 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { BusinessCardSkeleton } from "@/app/components/Skeletons";
+import { useRouter, useSearchParams as useNextSearchParams, usePathname } from "next/navigation";
+import {
+  Search, MapPin, Star, X, ChevronLeft, ChevronRight,
+  UtensilsCrossed, Wine, Ticket, Landmark, Compass, Trophy,
+  GraduationCap, Scissors, Sparkles, Leaf, Heart,
+} from "lucide-react";
+import { CardGridSkeleton } from "@/app/components/ui";
+import { slugToCategory, CATEGORY_CONFIG } from "@/lib/categories/config";
 
-function StarRating({ rating }: { rating: number }) {
-  return (
-    <div className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <svg
-          key={star}
-          className={`h-4 w-4 ${
-            star <= Math.round(rating) ? "text-yellow-400" : "text-gray-300"
-          }`}
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-        </svg>
-      ))}
-      <span className="ml-1 text-sm text-gray-600">{rating.toFixed(1)}</span>
-    </div>
-  );
-}
+const ICON_MAP: Record<string, React.ElementType> = {
+  UtensilsCrossed, Wine, Ticket, Landmark, Compass, Trophy,
+  GraduationCap, Scissors, Sparkles, Leaf, Heart,
+};
+
+const CITIES = ["Beirut", "Jounieh", "Byblos", "Tripoli", "Sidon", "Batroun", "Broummana", "Zahle", "Faraya"];
 
 type Business = {
-  id: string;
-  slug: string;
-  name: string;
-  city: string;
-  category: string;
+  id: string; slug: string; name: string; city: string; category: string;
   images: string[];
-  averageRating: number;
-  reviewCount: number;
+  extraFields: Record<string, unknown> | null;
+  averageRating: number; reviewCount: number;
   priceRange: { min: number; max: number | null } | null;
 };
 
 type BusinessListData = {
-  data: Business[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+  data: Business[]; total: number; page: number; limit: number; totalPages: number;
 };
+
+/** Extract up to 3 relevant tags from a business based on its category extraFields */
+function getCategoryTags(category: string, extraFields: Record<string, unknown> | null): string[] {
+  if (!extraFields) return [];
+  const f = extraFields;
+  switch (category) {
+    case "FOOD": {
+      const tags: string[] = [];
+      if (f.priceRange) tags.push(String(f.priceRange));
+      if (f.diningStyle) tags.push(String(f.diningStyle).replace("_", " "));
+      if (Array.isArray(f.cuisineTypes)) tags.push(...(f.cuisineTypes as string[]).slice(0, 2));
+      return tags.slice(0, 3);
+    }
+    case "NIGHTLIFE": {
+      const tags: string[] = [];
+      if (f.venueType) tags.push(String(f.venueType));
+      if (Array.isArray(f.musicGenre)) tags.push(...(f.musicGenre as string[]).slice(0, 2));
+      return tags.slice(0, 3);
+    }
+    case "EVENTS":
+      return Array.isArray(f.eventTypes) ? (f.eventTypes as string[]).slice(0, 3) : [];
+    case "ATTRACTIONS_TOURISM":
+      return Array.isArray(f.attractionType) ? (f.attractionType as string[]).slice(0, 3) : [];
+    case "ACTIVITIES_EXPERIENCES": {
+      const tags: string[] = [];
+      if (f.difficultyLevel) tags.push(String(f.difficultyLevel));
+      if (Array.isArray(f.activityTypes)) tags.push(...(f.activityTypes as string[]).slice(0, 2));
+      return tags.slice(0, 3);
+    }
+    case "COURTS_SPORTS": {
+      const tags: string[] = [];
+      if (typeof f.isIndoor === "boolean") tags.push(f.isIndoor ? "Indoor" : "Outdoor");
+      if (Array.isArray(f.sportTypes)) tags.push(...(f.sportTypes as string[]).slice(0, 2));
+      return tags.slice(0, 3);
+    }
+    case "STUDIOS_CLASSES": {
+      const tags: string[] = [];
+      if (f.skillLevel) tags.push(String(f.skillLevel).replace("_", " "));
+      if (Array.isArray(f.classTypes)) tags.push(...(f.classTypes as string[]).slice(0, 2));
+      return tags.slice(0, 3);
+    }
+    case "MEN_CARE": {
+      const tags = Array.isArray(f.specialties) ? (f.specialties as string[]).slice(0, 2) : [];
+      if (f.walkInsAccepted) tags.push("Walk-ins OK");
+      return tags.slice(0, 3);
+    }
+    case "WOMEN_CARE": {
+      const tags = Array.isArray(f.specialties) ? (f.specialties as string[]).slice(0, 2) : [];
+      if (f.genderFocus === "women_only") tags.push("Women Only");
+      return tags.slice(0, 3);
+    }
+    case "WELLNESS": {
+      const tags = Array.isArray(f.wellnessTypes) ? (f.wellnessTypes as string[]).slice(0, 2) : [];
+      if (f.hasPool) tags.push("Pool");
+      if (f.hasSauna) tags.push("Sauna");
+      return tags.slice(0, 3);
+    }
+    case "HEALTH_CARE": {
+      const tags = Array.isArray(f.healthServices) ? (f.healthServices as string[]).slice(0, 2) : [];
+      if (f.acceptsInsurance) tags.push("Insurance OK");
+      return tags.slice(0, 3);
+    }
+    default:
+      return [];
+  }
+}
+
+function BusinessCard({ business, categoryLabel }: { business: Business; categoryLabel: string }) {
+  const tags = getCategoryTags(business.category, business.extraFields);
+
+  return (
+    <Link
+      href={`/business/${business.slug}`}
+      className="group block rounded-xl bg-white shadow-sm overflow-hidden card-hover"
+    >
+      <div className="aspect-[4/3] bg-surface-border relative overflow-hidden">
+        {business.images?.[0] ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={business.images[0]}
+            alt={business.name}
+            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center text-4xl bg-surface-dim">🏢</div>
+        )}
+        <div
+          className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide"
+          style={{ backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent)" }}
+        >
+          {categoryLabel}
+        </div>
+      </div>
+      <div className="p-4">
+        <h3 className="font-semibold text-text-primary group-hover:text-accent transition-colors truncate">
+          {business.name}
+        </h3>
+        <div className="flex items-center gap-1 mt-1 text-text-secondary text-sm">
+          <MapPin className="w-3.5 h-3.5 shrink-0" />
+          {business.city}
+        </div>
+        {/* Category-specific tags */}
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="px-2 py-0.5 rounded-full text-xs font-medium bg-surface-dim text-text-secondary"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <Star className="w-4 h-4 fill-star text-star" />
+            <span className="text-sm font-semibold text-text-primary">
+              {business.averageRating > 0 ? business.averageRating.toFixed(1) : "New"}
+            </span>
+            {business.reviewCount > 0 && (
+              <span className="text-xs text-text-secondary">({business.reviewCount})</span>
+            )}
+          </div>
+          {business.priceRange && business.priceRange.min > 0 && (
+            <span className="text-sm font-semibold text-text-primary">
+              from ${business.priceRange.min}
+            </span>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 export default function CategoryClient({
   categorySlug,
   initialSearch,
+  initialCity,
+  initialMinRating,
+  initialSort,
   initialData,
 }: {
   categorySlug: string;
   initialSearch: string;
+  initialCity: string;
+  initialMinRating: string;
+  initialSort: string;
   initialData: BusinessListData | null;
 }) {
-  const category =
-    categorySlug === "sports"
-      ? "SPORTS"
-      : categorySlug === "salons"
-      ? "SALON"
-      : "";
-  const categoryLabel =
-    category === "SPORTS"
-      ? "Sports Venues"
-      : category === "SALON"
-      ? "Salons"
-      : categorySlug;
+  const router = useRouter();
+  const pathname = usePathname();
 
   const [search, setSearch] = useState(initialSearch);
-  const [city, setCity] = useState("");
-  const [minRating, setMinRating] = useState("");
+  const [city, setCity] = useState(initialCity);
+  const [minRating, setMinRating] = useState(initialMinRating);
+  const [sort, setSort] = useState(initialSort);
   const [page, setPage] = useState(1);
 
+  // Resolve category config
+  const dbCat = slugToCategory(categorySlug);
+  const cfg = dbCat ? CATEGORY_CONFIG[dbCat] : null;
+  const categoryLabel = cfg?.displayName ?? categorySlug;
+  const CategoryIcon = cfg ? (ICON_MAP[cfg.icon] ?? Trophy) : Trophy;
+
+  useEffect(() => { setPage(1); }, [search, city, minRating, sort]);
+
   useEffect(() => {
-    setPage(1);
-  }, [search, city, minRating]);
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (city) params.set("city", city);
+    if (minRating) params.set("minRating", minRating);
+    if (sort !== "rating") params.set("sort", sort);
+    if (page > 1) params.set("page", String(page));
+    router.replace(`${pathname}${params.toString() ? `?${params}` : ""}`, { scroll: false });
+  }, [search, city, minRating, sort, page, router, pathname]);
 
   const filters = {
-    category: category || undefined,
+    category: dbCat ?? undefined,
     search: search || undefined,
     city: city || undefined,
     minRating: minRating ? parseFloat(minRating) : undefined,
+    sort,
     page,
     limit: 12,
-    sort: "rating",
   };
 
-  const params = new URLSearchParams();
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined) params.set(key, String(value));
-  });
+  const queryParams = new URLSearchParams();
+  Object.entries(filters).forEach(([k, v]) => { if (v !== undefined) queryParams.set(k, String(v)); });
 
-  // Use initialData when the user hasn't changed any filters from the server state
   const isInitialState =
-    !city && !minRating && page === 1 && search === initialSearch;
+    !city && !minRating && page === 1 && search === initialSearch && sort === initialSort;
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ["businesses", filters],
     queryFn: async () => {
-      const res = await fetch(`/api/businesses?${params.toString()}`);
-      if (!res.ok) throw new Error("Failed to fetch businesses");
+      const res = await fetch(`/api/businesses?${queryParams}`);
+      if (!res.ok) throw new Error("Failed");
       return res.json() as Promise<BusinessListData>;
     },
     initialData: isInitialState ? (initialData ?? undefined) : undefined,
-    staleTime: 30 * 1000,
+    staleTime: 30_000,
     placeholderData: (prev) => prev,
   });
 
-  return (
-    <main className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
-        <div className="mx-auto max-w-7xl px-4 py-8">
-          <h1 className="text-3xl font-bold text-gray-900">{categoryLabel}</h1>
-          <p className="mt-2 text-gray-600">
-            Find and book the best {categoryLabel.toLowerCase()} near you
-          </p>
-        </div>
-      </div>
+  const hasActiveFilters = city || minRating || search;
 
-      <div className="mx-auto max-w-7xl px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Filters Sidebar */}
-          <div className="w-full lg:w-64 shrink-0">
-            <div className="rounded-xl bg-white p-6 shadow-sm space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Search
-                </label>
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Business name..."
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  City
-                </label>
-                <input
-                  type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="e.g. Beirut"
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Minimum Rating
-                </label>
-                <select
-                  value={minRating}
-                  onChange={(e) => setMinRating(e.target.value)}
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="">Any rating</option>
-                  <option value="3">3+ stars</option>
-                  <option value="4">4+ stars</option>
-                  <option value="4.5">4.5+ stars</option>
-                </select>
-              </div>
+  function clearFilters() {
+    setSearch(""); setCity(""); setMinRating(""); setSort("rating"); setPage(1);
+  }
+
+  return (
+    <div className="min-h-screen bg-surface-dim">
+      {/* Header */}
+      <div className="section-dark py-10 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center gap-2 text-sm mb-2" style={{ color: "var(--color-text-on-dark-muted)" }}>
+            <Link href="/" className="hover:text-white transition-colors">Home</Link>
+            <span>/</span>
+            <span className="text-white">{categoryLabel}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <CategoryIcon className="w-8 h-8" style={{ color: "var(--color-accent)" }} />
+            <div>
+              <h1 className="text-3xl font-extrabold text-white">{categoryLabel}</h1>
+              <p className="text-sm mt-0.5" style={{ color: "var(--color-text-on-dark-muted)" }}>
+                {data?.total ?? 0} businesses found
+              </p>
             </div>
           </div>
-
-          {/* Business Grid */}
-          <div className="flex-1">
-            {isLoading && !data ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <BusinessCardSkeleton key={i} />
-                ))}
-              </div>
-            ) : data?.data?.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">No businesses found</p>
-                <p className="text-gray-400 mt-1">Try adjusting your filters</p>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {data?.data?.map((business) => (
-                    <Link
-                      key={business.id}
-                      href={`/business/${business.slug}`}
-                      className="group rounded-xl bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-                    >
-                      <div className="aspect-video bg-gray-200 relative overflow-hidden">
-                        {business.images?.[0] ? (
-                          <img
-                            src={business.images[0]}
-                            alt={business.name}
-                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-4xl text-gray-400">
-                            {business.category === "SPORTS" ? "⚽" : "✂️"}
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-4">
-                        <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                          {business.name}
-                        </h3>
-                        <p className="mt-1 text-sm text-gray-500">
-                          {business.city}
-                        </p>
-                        <div className="mt-2 flex items-center justify-between">
-                          <StarRating rating={business.averageRating} />
-                          <span className="text-xs text-gray-400">
-                            {business.reviewCount} reviews
-                          </span>
-                        </div>
-                        {business.priceRange && (
-                          <p className="mt-2 text-sm text-gray-600">
-                            From ${business.priceRange.min}
-                          </p>
-                        )}
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-
-                {/* Pagination */}
-                {data && data.totalPages > 1 && (
-                  <div className="mt-8 flex items-center justify-center gap-2">
-                    <button
-                      onClick={() => setPage(Math.max(1, page - 1))}
-                      disabled={page === 1}
-                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-sm text-gray-600">
-                      Page {page} of {data.totalPages}
-                    </span>
-                    <button
-                      onClick={() => setPage(Math.min(data.totalPages, page + 1))}
-                      disabled={page === data.totalPages}
-                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
         </div>
       </div>
-    </main>
+
+      {/* Filter bar */}
+      <div className="sticky top-16 z-40 bg-white shadow-sm border-b border-surface-border">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3 overflow-x-auto scrollbar-none">
+          <div className="relative shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="pl-9 pr-3 py-1.5 rounded-lg border border-surface-border text-sm focus:outline-none focus:border-accent w-36"
+              style={{ outlineColor: "var(--color-accent)" }}
+            />
+          </div>
+
+          <select value={city} onChange={(e) => setCity(e.target.value)} className="px-3 py-1.5 rounded-lg border border-surface-border text-sm bg-white focus:outline-none focus:border-accent shrink-0">
+            <option value="">All Cities</option>
+            {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+
+          <select value={minRating} onChange={(e) => setMinRating(e.target.value)} className="px-3 py-1.5 rounded-lg border border-surface-border text-sm bg-white focus:outline-none focus:border-accent shrink-0">
+            <option value="">Any Rating</option>
+            <option value="3">3+ Stars</option>
+            <option value="4">4+ Stars</option>
+          </select>
+
+          <select value={sort} onChange={(e) => setSort(e.target.value)} className="px-3 py-1.5 rounded-lg border border-surface-border text-sm bg-white focus:outline-none focus:border-accent shrink-0">
+            <option value="rating">Top Rated</option>
+            <option value="newest">Newest</option>
+            <option value="name">Name A-Z</option>
+          </select>
+
+          {hasActiveFilters && (
+            <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors" style={{ color: "var(--color-error)", borderColor: "var(--color-error)", border: "1px solid" }}>
+              <X className="w-3.5 h-3.5" /> Clear All
+            </button>
+          )}
+
+          {city && (
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0" style={{ backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent)" }}>
+              {city} <X className="w-3 h-3 cursor-pointer" onClick={() => setCity("")} />
+            </span>
+          )}
+          {minRating && (
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0" style={{ backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent)" }}>
+              {minRating}+ Stars <X className="w-3 h-3 cursor-pointer" onClick={() => setMinRating("")} />
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Grid */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {(isLoading && !data) ? (
+          <CardGridSkeleton count={6} />
+        ) : data?.data?.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <CategoryIcon className="w-14 h-14 mb-4 opacity-20" />
+            <h3 className="text-xl font-bold text-text-primary mb-2">No businesses found</h3>
+            <p className="text-text-secondary mb-6">Try adjusting your filters or check back later.</p>
+            {hasActiveFilters && (
+              <button onClick={clearFilters} className="btn-primary text-sm">Clear Filters</button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 transition-opacity ${isFetching ? "opacity-70" : "opacity-100"}`}>
+              {data?.data?.map((business) => (
+                <BusinessCard key={business.id} business={business} categoryLabel={categoryLabel} />
+              ))}
+            </div>
+
+            {data && data.totalPages > 1 && (
+              <div className="mt-10 flex items-center justify-center gap-3">
+                <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="flex items-center gap-1 px-4 py-2 rounded-lg border border-surface-border text-sm font-medium text-text-primary hover:bg-surface-dim disabled:opacity-40 transition-colors">
+                  <ChevronLeft className="w-4 h-4" /> Previous
+                </button>
+                <span className="text-sm text-text-secondary font-medium">Page {page} of {data.totalPages}</span>
+                <button onClick={() => setPage(Math.min(data.totalPages, page + 1))} disabled={page === data.totalPages} className="flex items-center gap-1 px-4 py-2 rounded-lg border border-surface-border text-sm font-medium text-text-primary hover:bg-surface-dim disabled:opacity-40 transition-colors">
+                  Next <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
 }

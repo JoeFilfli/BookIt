@@ -17,7 +17,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Business Not Found | BookIt" };
   }
 
-  const categoryLabel = business.category === "SPORTS" ? "Sports Facility" : "Salon";
+  const { CATEGORY_CONFIG } = await import("@/lib/categories/config");
+  const categoryLabel = CATEGORY_CONFIG[business.category]?.displayName ?? business.category;
 
   return {
     title: `${business.name} | BookIt`,

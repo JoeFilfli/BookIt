@@ -30,9 +30,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!["SPORTS", "SALON"].includes(category)) {
+    const VALID_CATEGORIES = [
+      "FOOD", "NIGHTLIFE", "EVENTS", "ATTRACTIONS_TOURISM", "ACTIVITIES_EXPERIENCES",
+      "COURTS_SPORTS", "STUDIOS_CLASSES", "MEN_CARE", "WOMEN_CARE", "WELLNESS", "HEALTH_CARE",
+    ];
+    if (!VALID_CATEGORIES.includes(category)) {
       return NextResponse.json(
-        { error: "category must be SPORTS or SALON" },
+        { error: `category must be one of: ${VALID_CATEGORIES.join(", ")}` },
         { status: 400 }
       );
     }
@@ -94,7 +98,11 @@ export async function GET(req: NextRequest) {
 
     if (category) {
       const cat = category.toUpperCase();
-      if (["SPORTS", "SALON"].includes(cat)) {
+      const VALID = [
+        "FOOD", "NIGHTLIFE", "EVENTS", "ATTRACTIONS_TOURISM", "ACTIVITIES_EXPERIENCES",
+        "COURTS_SPORTS", "STUDIOS_CLASSES", "MEN_CARE", "WOMEN_CARE", "WELLNESS", "HEALTH_CARE",
+      ];
+      if (VALID.includes(cat)) {
         where.category = cat;
       }
     }

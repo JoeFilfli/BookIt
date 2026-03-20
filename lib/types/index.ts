@@ -1,8 +1,27 @@
 // ─── Enums ───────────────────────────────────────────────
 
-export type BusinessCategory = "SPORTS" | "SALON";
+export type BusinessCategory =
+  | "FOOD"
+  | "NIGHTLIFE"
+  | "EVENTS"
+  | "ATTRACTIONS_TOURISM"
+  | "ACTIVITIES_EXPERIENCES"
+  | "COURTS_SPORTS"
+  | "STUDIOS_CLASSES"
+  | "MEN_CARE"
+  | "WOMEN_CARE"
+  | "WELLNESS"
+  | "HEALTH_CARE";
 
-export type ResourceType = "COURT" | "STAFF" | "ROOM";
+export type ResourceType =
+  | "COURT"
+  | "STAFF"
+  | "ROOM"
+  | "TABLE"
+  | "VENUE_SPACE"
+  | "INSTRUCTOR"
+  | "GUIDE"
+  | "EQUIPMENT";
 
 export type BookingStatus = "CONFIRMED" | "COMPLETED" | "CANCELLED";
 
@@ -20,19 +39,97 @@ export interface User {
   updatedAt: string;
 }
 
-// ─── Business ────────────────────────────────────────────
+// ─── Business Extra Fields ────────────────────────────────
 
-export interface SportsExtraFields {
+export interface FoodExtraFields {
+  cuisineTypes: string[];
+  diningStyle: "casual" | "fine_dining" | "fast_casual" | "cafe";
+  hasDelivery: boolean;
+  hasOutdoorSeating: boolean;
+  priceRange: "$" | "$$" | "$$$" | "$$$$";
+}
+
+export interface NightlifeExtraFields {
+  venueType: "bar" | "club" | "lounge" | "pub" | "rooftop";
+  musicGenre: string[];
+  dressCode: "casual" | "smart_casual" | "formal" | "none";
+  ageRestriction: number;
+  hasVIP: boolean;
+}
+
+export interface EventsExtraFields {
+  eventTypes: string[];
+  venueCapacity: number;
+  isIndoor: boolean;
+  isOutdoor: boolean;
+}
+
+export interface AttractionsTourismExtraFields {
+  attractionType: string[];
+  tourDuration: string;
+  languages: string[];
+  accessibility: boolean;
+}
+
+export interface ActivitiesExperiencesExtraFields {
+  activityTypes: string[];
+  difficultyLevel: "easy" | "moderate" | "hard";
+  groupSizeMin: number;
+  groupSizeMax: number;
+  ageRequirement: number;
+}
+
+export interface CourtsSportsExtraFields {
   courtCount: number;
   sportTypes: string[];
   surfaceType: string;
-  indoor: boolean;
+  isIndoor: boolean;
 }
 
-export interface SalonExtraFields {
-  specialties: string[];
-  genderFocus: "men" | "women" | "unisex";
+export interface StudiosClassesExtraFields {
+  classTypes: string[];
+  skillLevel: "beginner" | "intermediate" | "advanced" | "all_levels";
+  maxClassSize: number;
+  providesEquipment: boolean;
 }
+
+export interface MenCareExtraFields {
+  specialties: string[];
+  walkInsAccepted: boolean;
+}
+
+export interface WomenCareExtraFields {
+  specialties: string[];
+  genderFocus: "women_only" | "unisex";
+}
+
+export interface WellnessExtraFields {
+  wellnessTypes: string[];
+  hasPool: boolean;
+  hasSauna: boolean;
+  couplesAvailable: boolean;
+}
+
+export interface HealthCareExtraFields {
+  healthServices: string[];
+  acceptsInsurance: boolean;
+  licenseNumber: string;
+}
+
+export type AnyExtraFields =
+  | FoodExtraFields
+  | NightlifeExtraFields
+  | EventsExtraFields
+  | AttractionsTourismExtraFields
+  | ActivitiesExperiencesExtraFields
+  | CourtsSportsExtraFields
+  | StudiosClassesExtraFields
+  | MenCareExtraFields
+  | WomenCareExtraFields
+  | WellnessExtraFields
+  | HealthCareExtraFields;
+
+// ─── Business ────────────────────────────────────────────
 
 export interface Business {
   id: string;
@@ -47,7 +144,7 @@ export interface Business {
   latitude: number | null;
   longitude: number | null;
   images: string[];
-  extraFields: SportsExtraFields | SalonExtraFields | null;
+  extraFields: AnyExtraFields | null;
   createdAt: string;
   updatedAt: string;
 }

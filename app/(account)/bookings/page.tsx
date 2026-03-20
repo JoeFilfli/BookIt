@@ -5,44 +5,47 @@ import { useSession } from "next-auth/react";
 import { useUserBookings, useCancelBooking, useCreateReview } from "@/lib/hooks";
 import Link from "next/link";
 import { toast } from "sonner";
-import { BookingCardSkeleton } from "@/app/components/Skeletons";
+import { CalendarDays, Clock, Star, Building2, CheckCircle, X } from "lucide-react";
+import { StarRating, Modal } from "@/app/components/ui";
+import Navbar from "@/app/components/layout/Navbar";
+import Footer from "@/app/components/layout/Footer";
 
-type Tab = "upcoming" | "past";
+type Tab = "upcoming" | "past" | "cancelled";
+
+interface Booking {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  totalPrice: string;
+  resource: { name: string; type: string; business: { name: string; slug: string } };
+  service: { name: string; durationMinutes: number; currency: string };
+  review: { id: string } | null;
+}
 
 function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    CONFIRMED: "bg-green-100 text-green-700",
-    COMPLETED: "bg-gray-100 text-gray-600",
-    CANCELLED: "bg-red-100 text-red-600",
+  const config: Record<string, { label: string; bg: string; color: string }> = {
+    CONFIRMED: { label: "Confirmed", bg: "rgba(16,185,129,0.1)", color: "var(--color-success)" },
+    COMPLETED: { label: "Completed", bg: "var(--color-surface-border)", color: "var(--color-text-secondary)" },
+    CANCELLED: { label: "Cancelled", bg: "rgba(239,68,68,0.1)", color: "var(--color-error)" },
   };
+  const c = config[status] ?? config.COMPLETED;
   return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status] || "bg-gray-100 text-gray-600"}`}>
-      {status.charAt(0) + status.slice(1).toLowerCase()}
+    <span
+      className="px-2.5 py-0.5 rounded-full text-xs font-semibold"
+      style={{ backgroundColor: c.bg, color: c.color }}
+    >
+      {c.label}
     </span>
   );
 }
 
-function StarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const [hovered, setHovered] = useState(0);
-  return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          onClick={() => onChange(star)}
-          onMouseEnter={() => setHovered(star)}
-          onMouseLeave={() => setHovered(0)}
-          className="text-2xl leading-none"
-        >
-          <span className={(hovered || value) >= star ? "text-yellow-400" : "text-gray-300"}>★</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ReviewForm({ bookingId, onSuccess }: { bookingId: string; onSuccess: () => void }) {
+function ReviewModal({
+  bookingId, open, onClose, onSuccess,
+}: {
+  bookingId: string; open: boolean; onClose: () => void; onSuccess: () => void;
+}) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [error, setError] = useState("");
@@ -56,60 +59,53 @@ function ReviewForm({ bookingId, onSuccess }: { bookingId: string; onSuccess: ()
       await createReview.mutateAsync({ bookingId, rating, comment: comment || undefined });
       toast.success("Review submitted!");
       onSuccess();
+      onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit review");
-      toast.error(err instanceof Error ? err.message : "Failed to submit review");
+      const msg = err instanceof Error ? err.message : "Failed";
+      setError(msg); toast.error(msg);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 border-t pt-4 space-y-3">
-      <p className="text-sm font-medium text-gray-700">Leave a Review</p>
-      <StarPicker value={rating} onChange={setRating} />
-      <textarea
-        value={comment}
-        onChange={(e) => setComment(e.target.value)}
-        rows={2}
-        placeholder="Share your experience (optional)"
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-      />
-      {error && <p className="text-xs text-red-600">{error}</p>}
-      <button
-        type="submit"
-        disabled={createReview.isPending}
-        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-      >
-        {createReview.isPending ? "Submitting..." : "Submit Review"}
-      </button>
-    </form>
+    <Modal open={open} onClose={onClose} title="Leave a Review">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-2">Your Rating</label>
+          <StarRating rating={rating} interactive onChange={setRating} size="lg" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-1">Comment (optional)</label>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={3}
+            placeholder="Share your experience..."
+            className="w-full rounded-xl border-2 border-surface-border px-3 py-2.5 text-sm focus:outline-none focus:border-accent transition-colors resize-none"
+          />
+        </div>
+        {error && <p className="text-sm text-error">{error}</p>}
+        <button
+          type="submit"
+          disabled={createReview.isPending}
+          className="btn-primary w-full justify-center"
+          style={{ display: "flex" }}
+        >
+          {createReview.isPending ? "Submitting..." : "Submit Review"}
+        </button>
+      </form>
+    </Modal>
   );
-}
-
-interface Booking {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-  totalPrice: string;
-  resource: {
-    name: string;
-    type: string;
-    business: { name: string; slug: string };
-  };
-  service: { name: string; durationMinutes: number; currency: string };
-  review: { id: string } | null;
 }
 
 export default function CustomerBookingsPage() {
   const { status: authStatus } = useSession();
   const [tab, setTab] = useState<Tab>("upcoming");
-  const [cancelError, setCancelError] = useState("");
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set());
 
   const { data, isLoading, refetch } = useUserBookings({
     upcoming: tab === "upcoming",
+    status: tab === "cancelled" ? "CANCELLED" : tab === "past" ? "COMPLETED" : undefined,
   });
 
   const cancelBooking = useCancelBooking();
@@ -117,165 +113,200 @@ export default function CustomerBookingsPage() {
 
   if (authStatus === "loading") {
     return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
-      </main>
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="skeleton w-80 h-64 rounded-2xl" />
+        </div>
+      </div>
     );
   }
 
   if (authStatus === "unauthenticated") {
     return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900">Sign in required</h1>
-          <Link
-            href="/login?callbackUrl=/bookings"
-            className="mt-4 inline-block rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Sign In
-          </Link>
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center">
+            <div className="text-5xl mb-4">🔐</div>
+            <h1 className="text-xl font-bold text-text-primary mb-2">Sign in required</h1>
+            <p className="text-text-secondary mb-6">You need to sign in to view your bookings.</p>
+            <Link href="/login?callbackUrl=/bookings" className="btn-primary">
+              Sign In
+            </Link>
+          </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   const handleCancel = async (bookingId: string) => {
-    if (!confirm("Cancel this booking? The time slot will be freed for others.")) return;
-    setCancelError("");
+    if (!confirm("Cancel this booking? The slot will be freed for others.")) return;
     try {
       await cancelBooking.mutateAsync(bookingId);
       toast.success("Booking cancelled.");
       refetch();
     } catch (err) {
-      setCancelError(err instanceof Error ? err.message : "Failed to cancel");
       toast.error(err instanceof Error ? err.message : "Failed to cancel booking");
     }
   };
 
+  const TABS: { key: Tab; label: string }[] = [
+    { key: "upcoming", label: "Upcoming" },
+    { key: "past", label: "Past" },
+    { key: "cancelled", label: "Cancelled" },
+  ];
+
   return (
-    <main className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="mx-auto max-w-3xl">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">My Bookings</h1>
-
-        {cancelError && (
-          <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-            {cancelError}
+    <div className="flex flex-col min-h-screen bg-surface-dim">
+      <Navbar />
+      <main className="flex-1 py-8 px-4">
+        <div className="max-w-3xl mx-auto">
+          {/* Header */}
+          <div className="mb-6">
+            <h1 className="text-3xl font-extrabold text-text-primary">My Bookings</h1>
+            <p className="text-text-secondary mt-1">Manage all your bookings in one place.</p>
           </div>
-        )}
 
-        {/* Tabs */}
-        <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit mb-6">
-          {(["upcoming", "past"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
-                tab === t ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
-          ))}
-        </div>
+          {/* Tabs */}
+          <div className="flex gap-1 mb-6 border-b border-surface-border">
+            {TABS.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className={`px-4 py-2.5 text-sm font-semibold transition-all border-b-2 -mb-px ${
+                  tab === key
+                    ? "border-b-2 text-accent"
+                    : "border-transparent text-text-secondary hover:text-text-primary"
+                }`}
+                style={tab === key ? { borderColor: "var(--color-accent)" } : undefined}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-        {isLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => <BookingCardSkeleton key={i} />)}
-          </div>
-        ) : bookings.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-gray-500">
-              {tab === "upcoming" ? "No upcoming bookings." : "No past bookings."}
-            </p>
-            <Link href="/" className="mt-4 inline-block text-blue-600 hover:text-blue-700 text-sm">
-              Browse businesses
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {bookings.map((booking) => {
-              const hasReview = booking.review || reviewedIds.has(booking.id);
-              return (
-                <div key={booking.id} className="rounded-xl bg-white p-5 shadow-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-gray-900">
-                          {booking.resource.business.name}
-                        </h3>
-                        <StatusBadge status={booking.status} />
+          {/* Content */}
+          {isLoading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="skeleton h-32 rounded-2xl" />
+              ))}
+            </div>
+          ) : bookings.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <CalendarDays className="w-12 h-12 text-text-secondary opacity-30 mb-4" />
+              <h3 className="text-lg font-bold text-text-primary mb-1">
+                No {tab} bookings
+              </h3>
+              <p className="text-sm text-text-secondary mb-6">
+                {tab === "upcoming"
+                  ? "Find something to book and it will show up here."
+                  : "Your past bookings will appear here."}
+              </p>
+              {tab === "upcoming" && (
+                <Link href="/" className="btn-primary text-sm">
+                  Browse Businesses
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {bookings.map((booking) => {
+                const hasReview = booking.review || reviewedIds.has(booking.id);
+                return (
+                  <div key={booking.id} className="bg-white rounded-2xl shadow-sm p-5">
+                    <div className="flex items-start gap-4 flex-wrap">
+                      {/* Business info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <h3 className="font-bold text-text-primary">
+                            {booking.resource.business.name}
+                          </h3>
+                          <StatusBadge status={booking.status} />
+                        </div>
+                        <div className="text-sm text-text-secondary">
+                          {booking.service.name} · {booking.resource.name}
+                        </div>
+                        <div className="flex items-center gap-3 mt-2 text-sm text-text-secondary flex-wrap">
+                          <span className="flex items-center gap-1">
+                            <CalendarDays className="w-3.5 h-3.5" />
+                            {new Date(booking.date).toLocaleDateString("en-US", {
+                              weekday: "short", year: "numeric", month: "short", day: "numeric",
+                            })}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            {booking.startTime} – {booking.endTime}
+                          </span>
+                        </div>
                       </div>
-                      <p className="mt-1 text-sm text-gray-600">
-                        {booking.service.name} · {booking.resource.name}
-                      </p>
-                      <p className="mt-1 text-sm text-gray-500">
-                        {new Date(booking.date).toLocaleDateString("en-US", {
-                          weekday: "short",
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}{" "}
-                        · {booking.startTime} – {booking.endTime}
-                      </p>
+
+                      {/* Price */}
+                      <div className="text-right shrink-0">
+                        <div className="text-lg font-extrabold text-text-primary">
+                          ${Number(booking.totalPrice).toFixed(2)}
+                        </div>
+                        <div className="text-xs text-text-secondary">{booking.service.currency}</div>
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-semibold text-gray-900">
-                        ${Number(booking.totalPrice).toFixed(2)}
-                      </p>
-                      <p className="text-xs text-gray-400">{booking.service.currency}</p>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 flex-wrap mt-4 pt-3 border-t border-surface-border">
+                      <Link
+                        href={`/business/${booking.resource.business.slug}`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-surface-border text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-surface-dim transition-colors"
+                      >
+                        <Building2 className="w-3.5 h-3.5" />
+                        View Business
+                      </Link>
+
+                      {booking.status === "CONFIRMED" && tab === "upcoming" && (
+                        <button
+                          onClick={() => handleCancel(booking.id)}
+                          disabled={cancelBooking.isPending}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50"
+                          style={{ borderColor: "rgba(239,68,68,0.3)", color: "var(--color-error)" }}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          Cancel
+                        </button>
+                      )}
+
+                      {booking.status === "COMPLETED" && !hasReview && (
+                        <button
+                          onClick={() => setReviewingId(booking.id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all active:scale-[0.98]"
+                          style={{ backgroundColor: "var(--color-accent)" }}
+                        >
+                          <Star className="w-3.5 h-3.5" />
+                          Leave Review
+                        </button>
+                      )}
+
+                      {booking.status === "COMPLETED" && hasReview && (
+                        <span className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-success">
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          Reviewed
+                        </span>
+                      )}
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </main>
+      <Footer />
 
-                  <div className="mt-4 flex gap-2 flex-wrap">
-                    <Link
-                      href={`/business/${booking.resource.business.slug}`}
-                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      View Business
-                    </Link>
-
-                    {booking.status === "CONFIRMED" && tab === "upcoming" && (
-                      <button
-                        onClick={() => handleCancel(booking.id)}
-                        disabled={cancelBooking.isPending}
-                        className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
-                      >
-                        Cancel Booking
-                      </button>
-                    )}
-
-                    {booking.status === "COMPLETED" && !hasReview && reviewingId !== booking.id && (
-                      <button
-                        onClick={() => setReviewingId(booking.id)}
-                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-                      >
-                        Leave Review
-                      </button>
-                    )}
-
-                    {booking.status === "COMPLETED" && hasReview && (
-                      <span className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-500">
-                        ★ Review submitted
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Inline review form */}
-                  {reviewingId === booking.id && !hasReview && (
-                    <ReviewForm
-                      bookingId={booking.id}
-                      onSuccess={() => {
-                        setReviewingId(null);
-                        setReviewedIds((prev) => new Set(prev).add(booking.id));
-                      }}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </main>
+      {/* Review Modal */}
+      <ReviewModal
+        bookingId={reviewingId ?? ""}
+        open={!!reviewingId}
+        onClose={() => setReviewingId(null)}
+        onSuccess={() => setReviewedIds((prev) => new Set(prev).add(reviewingId!))}
+      />
+    </div>
   );
 }

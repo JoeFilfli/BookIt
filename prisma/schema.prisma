@@ -10,14 +10,28 @@ datasource db {
 // ─── Enums ───────────────────────────────────────────────
 
 enum BusinessCategory {
-  SPORTS
-  SALON
+  FOOD
+  NIGHTLIFE
+  EVENTS
+  ATTRACTIONS_TOURISM
+  ACTIVITIES_EXPERIENCES
+  COURTS_SPORTS
+  STUDIOS_CLASSES
+  MEN_CARE
+  WOMEN_CARE
+  WELLNESS
+  HEALTH_CARE
 }
 
 enum ResourceType {
   COURT
   STAFF
   ROOM
+  TABLE
+  VENUE_SPACE
+  INSTRUCTOR
+  GUIDE
+  EQUIPMENT
 }
 
 enum BookingStatus {

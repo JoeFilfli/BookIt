@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
-import Navbar from "./components/Navbar";
+import { Toaster } from "sonner";
 
-const inter = Inter({ subsets: ["latin"] });
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-plus-jakarta",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: "Booking Marketplace",
-  description: "Book sports courts and salons instantly",
+  title: "BookIt — Discover & Book the Best in Lebanon",
+  description:
+    "Book sports courts, salons, dining, nightlife, wellness and more — all in one place.",
 };
 
 export default function RootLayout({
@@ -17,11 +23,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" dir="ltr">
-      <body className={inter.className}>
+    <html lang="en" dir="ltr" className={plusJakartaSans.variable}>
+      <body style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
         <Providers>
-          <Navbar />
           {children}
+          <Toaster richColors position="top-right" />
         </Providers>
       </body>
     </html>
