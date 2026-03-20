@@ -13,10 +13,10 @@ function mapImageToAvatarUrl<T extends Record<string, unknown>>(data: T) {
 const baseAdapter = PrismaAdapter(prisma);
 const adapter = {
   ...baseAdapter,
-  createUser: (data: Parameters<typeof baseAdapter.createUser>[0]) =>
-    baseAdapter.createUser(mapImageToAvatarUrl(data) as Parameters<typeof baseAdapter.createUser>[0]),
-  updateUser: (data: Parameters<typeof baseAdapter.updateUser>[0]) =>
-    baseAdapter.updateUser(mapImageToAvatarUrl(data) as Parameters<typeof baseAdapter.updateUser>[0]),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createUser: (data: any) => baseAdapter.createUser!(mapImageToAvatarUrl(data) as any),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  updateUser: (data: any) => baseAdapter.updateUser!(mapImageToAvatarUrl(data) as any),
 };
 
 export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
