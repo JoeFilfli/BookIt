@@ -1,6 +1,10 @@
 # Booking App
 
-A simple Next.js booking platform for businesses and customers.
+A Next.js booking platform for businesses and customers.
+
+## Live URL
+
+https://bookit.up.railway.app/
 
 ## Requirements
 

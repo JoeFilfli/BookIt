@@ -12,7 +12,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "BookIt — Discover & Book the Best in Lebanon",
+  title: "BookIt - Discover & Book the Best in Lebanon",
   description:
     "Book sports courts, salons, dining, nightlife, wellness and more — all in one place.",
 };
